@@ -36,7 +36,10 @@ export function SiteHeader() {
             <span className="block h-0.5 w-6 bg-foreground mb-1"></span>
             <span className="block h-0.5 w-6 bg-foreground"></span>
           </button>
-          <Link href="/" className="font-semibold">Bänkli</Link>
+          <Link href="/" className="flex items-center gap-2 font-semibold uppercase">
+            <img src="/logo.svg" alt="Bänkli Logo" className="h-8 w-8" />
+            Bänkli
+          </Link>
           <nav className="hidden gap-4 md:flex">
             <Link href="/" className={pathname === "/" ? "text-primary" : "text-muted-foreground"}>Home</Link>
             {isAuthed && (

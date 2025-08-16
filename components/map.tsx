@@ -2,6 +2,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useMemo } from "react";
 
 type Bench = {
   id: string;
@@ -26,6 +27,17 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
   });
   L.Marker.prototype.options.icon = DefaultIcon;
 
+  const customPin = useMemo(
+    () =>
+      L.icon({
+        //iconUrl: "/pin.svg",
+        iconUrl: "/pin-color-2.svg",
+        iconSize: [39, 51],
+        iconAnchor: [19.5, 45],
+      }),
+    []
+  );
+
   return (
     <MapContainer center={[position.lat, position.lng]} zoom={13} scrollWheelZoom className="h-full w-full">
       <TileLayer
@@ -34,7 +46,8 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
       />
       {benches.map((b) => (
         b.location ? (
-          <Marker key={b.id} position={[b.location.lat, b.location.lng]}>
+          //<Marker key={b.id} position={[b.location.lat, b.location.lng]}>
+          <Marker key={b.id} position={[b.location.lat, b.location.lng]} icon={customPin} >
             <Popup>
               <div className="space-y-1">
                 <div className="font-medium">{b.name}</div>

@@ -6,6 +6,9 @@ import { SiteHeader } from "@/components/navbar";
 export const metadata: Metadata = {
   title: "Bänkli",
   description: "Find and rate benches around you",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
