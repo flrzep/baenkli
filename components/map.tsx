@@ -30,10 +30,11 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
   const customPin = useMemo(
     () =>
       L.icon({
-        //iconUrl: "/pin.svg",
-        iconUrl: "/pin-color-2.svg",
-        iconSize: [39, 51],
-        iconAnchor: [19.5, 45],
+        // iconUrl: "/pin.svg",
+        iconUrl: "/pin.png",
+        iconSize: [64, 64],
+        iconAnchor: [32, 60],
+        popupAnchor: [1, -50],
       }),
     []
   );
