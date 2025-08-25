@@ -25,19 +25,7 @@ export function BenchForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    let imageUrl: string | null = null;
-    if (imageFile) {
-      const filePath = `${Date.now()}_${imageFile.name}`;
-      const { data, error } = await supabase.storage
-        .from(process.env.NEXT_PUBLIC_SUPABASE_BUCKET_BENCHES || "benches")
-        .upload(filePath, imageFile, { upsert: true });
-      if (!error && data) {
-        const { data: pub } = supabase.storage
-          .from(process.env.NEXT_PUBLIC_SUPABASE_BUCKET_BENCHES || "benches")
-          .getPublicUrl(data.path);
-        imageUrl = pub.publicUrl;
-      }
-    }
+    let imageToUpload: File | null = imageFile;
 
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth.user?.id;
@@ -48,7 +36,7 @@ export function BenchForm() {
         name,
         location: lat !== "" && lng !== "" ? { lat: Number(lat), lng: Number(lng) } : null,
         rating: null,
-        image: imageUrl,
+        image: null,
       })
       .select("id")
       .single();
@@ -59,9 +47,22 @@ export function BenchForm() {
       return;
     }
 
-    if (benchInsert?.id && userId && (ratingLocation !== "" || ratingComfort !== "" || material)) {
+    const benchId = benchInsert?.id;
+    if (benchId && imageToUpload) {
+      const filePath = `${benchId}/${Date.now()}_${imageToUpload.name}`;
+      const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET_BENCHES || "benches";
+      const { data: upload, error: upErr } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, imageToUpload, { upsert: true });
+      if (!upErr && upload) {
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(upload.path);
+        await supabase.from("benches").update({ image: pub.publicUrl }).eq("id", benchId);
+      }
+    }
+
+    if (benchId && userId && (ratingLocation !== "" || ratingComfort !== "" || material)) {
       await supabase.from("bench_ratings").insert({
-        bench_id: benchInsert.id,
+        bench_id: benchId,
         profile_id: userId,
         rating_location: ratingLocation === "" ? null : Number(ratingLocation),
         rating_comfort: ratingComfort === "" ? null : Number(ratingComfort),

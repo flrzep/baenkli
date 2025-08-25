@@ -17,7 +17,9 @@ export default async function HomePage() {
     }
   );
 
-  const { data: benches } = await supabase.from("benches").select("id,name,location,rating,image");
+  const { data: benches } = await supabase
+    .from("benches")
+    .select("id, name, location, rating, n_reviews");
 
   return (
     <div className="grid gap-6 md:grid-cols-[1fr]">
