@@ -4,7 +4,7 @@ import Image from "next/image";
 import { createBrowserClient } from "@supabase/ssr";
 import { Database } from "@/lib/types";
 
-export function BenchGallery({ benchId }: { benchId: string }) {
+export function BenchGallery({ benchId, fullWidth = false }: { benchId: string, fullWidth?: boolean }) {
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -34,10 +34,10 @@ export function BenchGallery({ benchId }: { benchId: string }) {
   if (!urls.length) return null;
 
   return (
-    <div className="mt-2 w-full">
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+    <div className="mt-2 h-full">
+      <div className={`flex gap-3 overflow-x-auto scrollbar-hide pb-2 h-full `}>
         {urls.map((u) => (
-          <div key={u} className="relative flex-shrink-0 h-32 w-48 overflow-hidden rounded-lg shadow-md">
+          <div key={u} className={`relative flex-shrink-0 h-full overflow-hidden rounded-lg shadow-md ${fullWidth ? 'w-full' : 'w-64'}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={u} alt="Bench" className="h-full w-full object-cover" />
           </div>
