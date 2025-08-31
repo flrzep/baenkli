@@ -2,9 +2,11 @@
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BenchGallery } from "@/components/bench-gallery";
 import { BenchDetailModal } from "@/components/bench-detail-modal";
+import { createBrowserClient } from "@supabase/ssr";
+import { Database } from "@/lib/types";
 
 type Bench = {
   id: string;
@@ -17,8 +19,31 @@ type Bench = {
 export default function BenchesMap({ benches }: { benches: Bench[] }) {
   const [selectedBenchId, setSelectedBenchId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [popupRefreshKey, setPopupRefreshKey] = useState(0);
+  const [rows, setRows] = useState<Bench[]>(benches);
 
-  const position = benches[0]?.location ?? { lat: 47.3769, lng: 8.5417 };
+  // keep local copy in sync if parent updates benches
+  useEffect(() => {
+    setRows(benches);
+  }, [benches]);
+
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  async function refreshBenchRow(id: string) {
+    const { data } = await supabase
+      .from("benches")
+      .select("id,name,location,rating,n_reviews")
+      .eq("id", id)
+      .single();
+    if (data) {
+      setRows((prev) => prev.map((b) => (b.id === id ? { ...b, ...data } : b)));
+    }
+  }
+
+  const position = rows[0]?.location ?? { lat: 47.3769, lng: 8.5417 };
 
   // Use custom SVG pin
   const DefaultIcon = L.icon({
@@ -57,14 +82,14 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {benches.map((b) => (
+  {rows.map((b) => (
           b.location ? (
             //<Marker key={b.id} position={[b.location.lat, b.location.lng]}>
             <Marker key={b.id} position={[b.location.lat, b.location.lng]} icon={customPin} >
               <Popup>
-                <div className="">
+                <div className="min-w-40">
                   {/* images */}
-                  <BenchGallery benchId={b.id} fullWidth={true} />
+                  <BenchGallery benchId={b.id} fullWidth={true} refreshKey={popupRefreshKey} />
                   <div className="text-lg font-medium">
                     <button
                       onClick={() => handleBenchClick(b.id)}
@@ -97,6 +122,10 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
         benchId={selectedBenchId}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        onUpdated={() => {
+          setPopupRefreshKey((k) => k + 1);
+          if (selectedBenchId) refreshBenchRow(selectedBenchId);
+        }}
       />
     </>
   );
