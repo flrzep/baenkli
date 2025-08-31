@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { Database } from "@/lib/types";
 
 const BenchesMap = dynamic(() => import("@/components/map"), { ssr: false });
@@ -22,12 +23,25 @@ export default async function HomePage() {
     .select("id, name, location, rating, n_reviews");
 
   return (
+    <ClientHome benches={benches ?? []} />
+  );
+}
+
+// Client shell to host modal state and plus button
+function ClientHome({ benches }: { benches: any[] }) {
+  return (
     <div className="grid gap-6 md:grid-cols-[1fr]">
-      <div className="h-[70vh] w-full overflow-hidden rounded-lg border">
-        <BenchesMap benches={benches ?? []} />
+      <div className="relative h-[70vh] w-full overflow-hidden rounded-lg border">
+        <BenchesMap benches={benches} />
+        <div className="absolute top-3 right-3 z-30">
+          <AddBenchButton />
+        </div>
       </div>
     </div>
   );
 }
+
+// Dynamic import to keep page server component but allow client state
+const AddBenchButton = dynamic(() => import("../components/new-bench-entry"), { ssr: false });
 
 

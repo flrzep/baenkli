@@ -16,9 +16,9 @@ export interface Database {
         Update: { username?: string | null; avatar_url?: string | null }
       }
       benches: {
-        Row: { id: string; name: string | null; location: { lat: number; lng: number } | null; rating: number | null; image: string | null; n_reviews: number | null }
-        Insert: { id?: string; name?: string | null; location?: { lat: number; lng: number } | null; rating?: number | null; image?: string | null; n_reviews?: number | null }
-        Update: { name?: string | null; location?: { lat: number; lng: number } | null; rating?: number | null; image?: string | null; n_reviews?: number | null }
+  Row: { id: string; name: string | null; location: { lat: number; lng: number } | null; rating: number | null; image: string | null; n_reviews: number | null; type: string | null; material: string | null; created_by?: string | null }
+  Insert: { id?: string; name?: string | null; location?: { lat: number; lng: number } | null; rating?: number | null; image?: string | null; n_reviews?: number | null; type?: string | null; material?: string | null }
+  Update: { name?: string | null; location?: { lat: number; lng: number } | null; rating?: number | null; image?: string | null; n_reviews?: number | null; type?: string | null; material?: string | null }
       }
       bench_ratings: {
         Row: { id: string; bench_id: string; profile_id: string; rating_location: number | null; rating_comfort: number | null; material: string | null }

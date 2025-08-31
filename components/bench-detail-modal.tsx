@@ -7,6 +7,8 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 import UploadDialog from "@/components/upload-dialog";
+import { BENCH_TYPES, MATERIALS } from "@/lib/benchOptions";
+import ReviewDialog from "@/components/review-dialog";
 
 type Bench = {
   id: string;
@@ -14,11 +16,8 @@ type Bench = {
   type: string | null;
   rating: number | null;
   n_reviews: number | null;
-};
-
-type BenchRating = {
-  rating_location: number | null;
-  rating_comfort: number | null;
+  avg_location?: number | null;
+  avg_comfort?: number | null;
 };
 
 function StarBar({ value }: { value: number | null }) {
@@ -62,9 +61,9 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [bench, setBench] = useState<Bench | null>(null);
-  const [ratings, setRatings] = useState<BenchRating[]>([]);
   const [loading, setLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false)
+  const [showReview, setShowReview] = useState(false);
   const [galleryRefresh, setGalleryRefresh] = useState(0);
   const [ownerName, setOwnerName] = useState<string | null>(null);
   const [createdById, setCreatedById] = useState<string | null>(null);
@@ -73,8 +72,10 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
   const [editMode, setEditMode] = useState(false);
   const [editName, setEditName] = useState<string>("");
   const [editType, setEditType] = useState<string>("");
+  const [editMaterial, setEditMaterial] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // No bench_ratings reads in modal; ReviewDialog handles rating CRUD
 
 
 
@@ -103,11 +104,7 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
         setOwnerName(null);
       }
 
-      const { data: ratingsData } = await supabase
-        .from("bench_ratings")
-        .select("rating_location, rating_comfort")
-        .eq("bench_id", benchId);
-      setRatings(ratingsData || []);
+  // Ratings come from benches aggregates
     }
     setLoading(false);
   }, [benchId, supabase]);
@@ -138,23 +135,16 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
     if (isOpen) loadUser();
   }, [isOpen, supabase]);
 
+  // Do not query bench_ratings here
+
   if (!isOpen || !bench) return null;
 
-  const valuesLocation = ratings.map((r) => r.rating_location).filter((v): v is number => typeof v === "number");
-  const valuesComfort = ratings.map((r) => r.rating_comfort).filter((v): v is number => typeof v === "number");
-
-  const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
-  const avgLocation = avg(valuesLocation);
-  const avgComfort = avg(valuesComfort);
-
-  const overall = typeof bench.rating === "number"
-    ? bench.rating
-    : avg([...(avgLocation ? [avgLocation] : []), ...(avgComfort ? [avgComfort] : [])]) ?? null;
-
+  const overall = typeof bench.rating === "number" ? bench.rating : null;
+  const avgLocation = typeof bench.avg_location === "number" ? bench.avg_location : null;
+  const avgComfort = typeof bench.avg_comfort === "number" ? bench.avg_comfort : null;
   const comfort10 = typeof avgComfort === "number" ? avgComfort * 2 : null;
   const location10 = typeof avgLocation === "number" ? avgLocation * 2 : null;
-
-  const reviewsCount = typeof bench.n_reviews === "number" ? bench.n_reviews : ratings.length;
+  const reviewsCount = typeof bench.n_reviews === "number" ? bench.n_reviews : 0;
 
   function handleUploaded() {
     // Bump key to trigger gallery reload
@@ -184,22 +174,24 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
   if (!bench) return;
   setEditName(bench.name ?? "");
   setEditType((bench as any).type ?? "");
+  setEditMaterial((bench as any).material ?? "");
   setSaveError(null);
   setEditMode(true);
   }
 
   async function handleAddReviewClick() {
     if (!(await requireAuth())) return;
-    // TODO: open review UI
+  setShowReview(true);
   }
 
-  const canEdit = isAdmin || (currentUserId !== null && createdById !== null && currentUserId === createdById);
+  const isOwner = currentUserId !== null && createdById !== null && currentUserId === createdById;
+  const canEdit = isAdmin || isOwner;
 
   async function handleSaveEdit() {
     if (!benchId) return;
     setSaving(true);
     setSaveError(null);
-    const updates: any = { name: editName, type: editType };
+  const updates: any = { name: editName, type: editType, material: editMaterial };
     const { error } = await supabase
       .from("benches")
       .update(updates)
@@ -207,7 +199,7 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
     if (error) {
       setSaveError(error.message);
     } else {
-      setBench((prev) => (prev ? { ...prev, name: editName, type: editType } : prev));
+  setBench((prev) => (prev ? { ...prev, name: editName, type: editType, material: editMaterial } : prev));
       setEditMode(false);
   // Reload from server to ensure consistency
   fetchBenchDetails();
@@ -258,8 +250,8 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
             {saveError && (
               <div className="text-xs text-red-600 mb-1">{saveError}</div>
             )}
-            {ownerName && (
-              <div className="text-xs text-gray-500 -mt-1 mb-1">created by {ownerName}</div>
+            {(isOwner || ownerName) && (
+              <div className="text-xs text-gray-500 -mt-1 mb-1">created by {isOwner ? "you" : ownerName}</div>
             )}
             {typeof bench.rating === "number" ? (
               <div className="flex items-center m-0 mb-2">
@@ -330,7 +322,7 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="w-5 h-5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
                 </svg>
-                Add Review
+                Add review
               </button>
             </div>
           </div>
@@ -381,14 +373,36 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
           <div className="mt-6">
             <h2 className="text-lg font-medium mb-1">Type</h2>
             {editMode ? (
-              <input
+              <select
                 value={editType}
                 onChange={(e) => setEditType(e.target.value)}
-                className="text-sm border rounded px-2 py-1 w-full max-w-md"
-                placeholder="Bench type"
-              />)
-              : (
+                className="text-sm border rounded px-2 py-1 w-full max-w-md bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700"
+              >
+                <option value="">Select type</option>
+                {BENCH_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            ) : (
               <p className="text-sm text-gray-600 dark:text-gray-300">{bench.type ?? "-"}</p>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <h2 className="text-lg font-medium mb-1">Material</h2>
+            {editMode ? (
+              <select
+                value={editMaterial}
+                onChange={(e) => setEditMaterial(e.target.value)}
+                className="text-sm border rounded px-2 py-1 w-full max-w-md bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700"
+              >
+                <option value="">Select material</option>
+                {MATERIALS.map((m) => (
+                  <option key={m} value={m.toLowerCase()}>{m}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-300">{(bench as any).material ?? "-"}</p>
             )}
           </div>
         </div>
@@ -400,6 +414,18 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
           open={showUpload}
           onClose={() => setShowUpload(false)}
           onUploaded={() => handleUploaded()}
+        />
+      )}
+      {showReview && benchId && (
+        <ReviewDialog
+          benchId={benchId}
+          open={showReview}
+          onClose={() => setShowReview(false)}
+          onSaved={() => {
+            // refresh local rating data and external popups
+            fetchBenchDetails();
+            onUpdated?.();
+          }}
         />
       )}
     </div>,

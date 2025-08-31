@@ -28,12 +28,70 @@ export default function UploadDialog({ benchId, open, onClose, onUploaded }: Upl
 
   if (!open) return null;
 
+  // Crop an image file to a target aspect ratio (center-crop), preserving type
+  async function cropImageToAspect(file: File, targetAspect = 4 / 3): Promise<File> {
+    // Create object URL
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      // Load image element
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = (e) => reject(new Error("Failed to load image for cropping"));
+        image.src = objectUrl;
+      });
+
+      const iw = img.naturalWidth || img.width;
+      const ih = img.naturalHeight || img.height;
+      if (!iw || !ih) return file;
+
+      const imageAspect = iw / ih;
+      let sx = 0, sy = 0, sw = iw, sh = ih;
+      if (imageAspect > targetAspect) {
+        // Too wide, crop left/right
+        sw = Math.round(ih * targetAspect);
+        sx = Math.round((iw - sw) / 2);
+      } else if (imageAspect < targetAspect) {
+        // Too tall, crop top/bottom
+        sh = Math.round(iw / targetAspect);
+        sy = Math.round((ih - sh) / 2);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return file;
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+      const blob: Blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), file.type || "image/jpeg", 0.92);
+      });
+
+      // Preserve original filename and type
+      const cropped = new File([blob], file.name, { type: blob.type });
+      return cropped;
+    } catch {
+      return file;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
   const doUpload = async () => {
     if (!files.length) return;
     setUploading(true);
     setError(null);
     try {
-      const { uploaded, errors } = await uploadBenchImages(supabase, benchId, files);
+      // Crop each image to 4:3 prior to upload; fall back to original on failure
+      const cropped: Uploadable[] = await Promise.all(
+        files.map(async (f) => ({
+          ...f,
+          file: await cropImageToAspect(f.file, 4 / 3),
+        }))
+      );
+
+      const { uploaded, errors } = await uploadBenchImages(supabase, benchId, cropped);
       if (errors.length) {
         setError(errors.map((e) => e.message).join("; "));
       }

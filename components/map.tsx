@@ -1,5 +1,5 @@
 "use client";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useState } from "react";
@@ -77,7 +77,7 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
 
   return (
     <>
-      <MapContainer center={[position.lat, position.lng]} zoom={13} scrollWheelZoom className="h-full w-full z-0">
+  <MapContainer center={[position.lat, position.lng]} zoom={13} scrollWheelZoom className="h-full w-full z-0">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -115,7 +115,8 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
               </Popup>
             </Marker>
           ) : null
-        ))}
+  ))}
+  <LocateButton />
       </MapContainer>
 
       <BenchDetailModal
@@ -128,6 +129,36 @@ export default function BenchesMap({ benches }: { benches: Bench[] }) {
         }}
       />
     </>
+  );
+}
+
+function LocateButton() {
+  const map = useMap();
+  async function locate() {
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        map.flyTo([latitude, longitude], Math.max(map.getZoom(), 15), { animate: true, duration: 0.4 });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
+    );
+  }
+  return (
+    <div className="absolute bottom-3 right-3 z-[1000]">
+      <button
+        type="button"
+        onClick={locate}
+        className="inline-flex items-center justify-center rounded-md bg-white/90 dark:bg-gray-800/90 border border-gray-300 dark:border-gray-700 shadow-sm hover:bg-white dark:hover:bg-gray-800 w-10 h-10"
+        aria-label="Go to my location"
+        title="Go to my location"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-700 dark:text-gray-200">
+          <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v1.77a7.23 7.23 0 0 1 6.48 6.48h1.77a.75.75 0 0 1 0 1.5H19.23a7.23 7.23 0 0 1-6.48 6.48v1.77a.75.75 0 0 1-1.5 0V19.23a7.23 7.23 0 0 1-6.48-6.48H2.25a.75.75 0 0 1 0-1.5H4.02a7.23 7.23 0 0 1 6.48-6.48V3a.75.75 0 0 1 .75-.75Zm0 4.5a5.25 5.25 0 1 0 0 10.5 5.25 5.25 0 0 0 0-10.5Zm0 3a2.25 2.25 0 1 1 0 4.5 2.25 2.25 0 0 1 0-4.5Z" clipRule="evenodd" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
