@@ -168,7 +168,7 @@ export function BenchDetailModal({ benchId, isOpen, onClose, onUpdated }: BenchD
   async function requireAuth(): Promise<boolean> {
     const { data } = await supabase.auth.getUser();
     if (!data?.user) {
-      router.push("/auth/login");
+      router.push("/login");
       return false;
     }
     return true;
